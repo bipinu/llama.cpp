@@ -82,6 +82,7 @@ option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
 
 # Required for relocatable CMake package
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/build-info.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/common.cmake)
 
 # override ggml options
 set(GGML_SANITIZE_THREAD    ${LLAMA_SANITIZE_THREAD})
@@ -93,10 +94,6 @@ set(GGML_FATAL_WARNINGS     ${LLAMA_FATAL_WARNINGS})
 # change the default for these ggml options
 if (NOT DEFINED GGML_LLAMAFILE)
     set(GGML_LLAMAFILE_DEFAULT ON)
-endif()
-
-if (NOT DEFINED GGML_AMX)
-    set(GGML_AMX ON)
 endif()
 
 if (NOT DEFINED GGML_CUDA_GRAPHS)

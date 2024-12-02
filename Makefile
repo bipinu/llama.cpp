@@ -1,3 +1,7 @@
+ifndef LLAMA_MAKEFILE
+$(error The Makefile build is deprecated. Use the CMake build instead. For more details, see https://github.com/ggerganov/llama.cpp/blob/master/docs/build.md)
+endif
+
 # Define the default target now so that it is always the first target
 BUILD_TARGETS = \
 	libllava.a \
@@ -251,11 +255,11 @@ endif
 # Compile flags
 #
 
-# keep standard at C11 and C++11
+# keep standard at C11 and C++17
 MK_CPPFLAGS  = -Iggml/include -Iggml/src -Iinclude -Isrc -Icommon -DGGML_USE_CPU
 MK_CFLAGS    = -std=c11   -fPIC
-MK_CXXFLAGS  = -std=c++11 -fPIC
-MK_NVCCFLAGS = -std=c++11
+MK_CXXFLAGS  = -std=c++17 -fPIC
+MK_NVCCFLAGS = -std=c++17
 
 ifdef LLAMA_NO_CCACHE
 GGML_NO_CCACHE := 1
@@ -575,8 +579,11 @@ endif
 
 ifndef GGML_NO_AMX
 	MK_CPPFLAGS += -DGGML_USE_AMX
-	OBJ_GGML_EXT += ggml/src/ggml-amx/ggml-amx.o ggml/src/ggml-amx/mmq.o
+	OBJ_GGML_EXT += ggml/src/ggml-cpu/amx/amx.o ggml/src/ggml-cpu/amx/mmq.o
 endif
+
+# only necessary for the CPU backend files
+MK_CPPFLAGS += -Iggml/src/ggml-cpu
 
 ifdef GGML_RPC
 	MK_CPPFLAGS  += -DGGML_USE_RPC
@@ -752,7 +759,7 @@ vulkan-shaders-gen: ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
 
 endif # GGML_VULKAN
 
-ifdef GGML_HIPBLAS
+ifdef GGML_HIP
 	ifeq ($(wildcard /opt/rocm),)
 		ROCM_PATH      ?= /usr
 		AMDGPU_TARGETS ?= $(shell $(shell which amdgpu-arch))
@@ -807,7 +814,7 @@ ggml/src/ggml-cuda/%.o: \
 	ggml/src/ggml-common.h \
 	ggml/src/ggml-cuda/common.cuh
 	$(HIPCC) $(CXXFLAGS) $(HIPFLAGS) -x hip -c -o $@ $<
-endif # GGML_HIPBLAS
+endif # GGML_HIP
 
 ifdef GGML_MUSA
 	ifeq ($(wildcard /opt/musa),)
@@ -815,7 +822,7 @@ ifdef GGML_MUSA
 	else
 		MUSA_PATH ?= /opt/musa
 	endif
-	MTGPU_TARGETS ?= mp_21 mp_22
+	MUSA_ARCHITECTURES ?= 21;22
 
 	MK_CPPFLAGS += -DGGML_USE_MUSA -DGGML_USE_CUDA
 	MK_LDFLAGS += -L$(MUSA_PATH)/lib -Wl,-rpath=$(MUSA_PATH)/lib
@@ -834,7 +841,8 @@ ifdef GGML_MUSA
 	CXX := $(MUSA_PATH)/bin/clang++
 	MCC := $(CCACHE) $(MUSA_PATH)/bin/mcc
 
-	MUSAFLAGS += $(addprefix --cuda-gpu-arch=, $(MTGPU_TARGETS))
+	MUSAFLAGS  = -x musa -mtgpu
+	MUSAFLAGS += $(foreach arch,$(subst ;, ,$(MUSA_ARCHITECTURES)),--cuda-gpu-arch=mp_$(arch))
 
 ifdef GGML_CUDA_FORCE_MMQ
 	MUSAFLAGS += -DGGML_CUDA_FORCE_MMQ
@@ -878,14 +886,14 @@ ggml/src/ggml-cuda/ggml-cuda.o: \
 	ggml/src/ggml-backend-impl.h \
 	ggml/src/ggml-common.h \
 	$(wildcard ggml/src/ggml-cuda/*.cuh)
-	$(MCC) $(CXXFLAGS) $(MUSAFLAGS) -x musa -mtgpu -c -o $@ $<
+	$(MCC) $(CXXFLAGS) $(MUSAFLAGS) -c -o $@ $<
 
 ggml/src/ggml-cuda/%.o: \
 	ggml/src/ggml-cuda/%.cu \
 	ggml/include/ggml.h \
 	ggml/src/ggml-common.h \
 	ggml/src/ggml-cuda/common.cuh
-	$(MCC) $(CXXFLAGS) $(MUSAFLAGS) -x musa -mtgpu -c -o $@ $<
+	$(MCC) $(CXXFLAGS) $(MUSAFLAGS) -c -o $@ $<
 endif # GGML_MUSA
 
 ifdef GGML_METAL
